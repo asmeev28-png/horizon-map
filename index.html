@@ -21,12 +21,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script>
-    const SUPABASE_URL = 'https://ldvixamfxnqrsltztxyb.supabase.co/rest/v1';
+    const SUPABASE_URL = 'https://ldvixamfxnqrsltztxyb.supabase.co/rest/v1/';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxkdml4YW1meG5xcnNsdHp0eHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMzI4ODksImV4cCI6MjEwNzkwODg4OX0.0cc8e9luCKUq11ePut7Gc-NuUf7_FfG1N61-564Y28s';
     const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const map = L.map('map').setView([59.9311, 30.3609], 10);
-    L.tileLayer('https://{s}.basemaps.  	  cartocdn.com/light_all/{z}/{x}/{y}{r png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 19
@@ -92,7 +92,7 @@ ${point.type === 'birth' ? 'Место рождения' : 'Место жите�
     map.on('click', async function(e) {
         if (!addType) return;
         const lat = e.latlng.lat, lng = e.latlng.lng;
-        const name = prompt('Имя друга или подпись:');
+        const name = prompt('Имя:');
         if (!name) { setStatus('Отмена'); addType = null; return; }
         let {error} = await supa.from('points').insert([{ name, type: addType, lat, lng }]);
         if (error) setStatus('Ошибка при сохранении: ' + error.message);
