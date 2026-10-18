@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Карта друзей — места жительства и рождения</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 90vh; width: 100vw; }
+        .leaflet-control-layers-expanded { max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+<h3>Карта друзей: места жительства и рождения</h3>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+    // ВСТАВЬ СЮДА свои данные из Supabase!
+    const SUPABASE_URL = 'https://ldvixamfxnqrsltztxyb.supabase.co/rest/v1';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxkdml4YW1meG5xcnNsdHp0eHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMzI4ODksImV4cCI6MjEwNzkwODg4OX0.0cc8e9luCKUq11ePut7Gc-NuUf7_FfG1N61-564Y28s';
+
+    const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const map = L.map('map').setView([59.9311, 30.3609], 10); // Центр СПб
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Два слоя: место жительства и место рождения
+    const liveLayer = L.layerGroup().addTo(map);
+    const birthLayer = L.layerGroup().addTo(map);
+
+    const layers = {
+        "Место жительства": liveLayer,
+        "Место рождения": birthLayer
+    };
+    L.control.layers(null, layers, {collapsed: false}).addTo(map);
+
+    // Цвета для разных типов точек
+    function markerOpts(type) {
+        return {
+            color: type === 'birth' ? '#b30000' : '#0077b6',
+            fillColor: type === 'birth' ? '#f7797d' : '#90e0ef',
+            fillOpacity: 0.8,
+            radius: 10
+        };
+    }
+
+    // Загрузка точек с Supabase
+    async function loadMarkers() {
+        liveLayer.clearLayers();
+        birthLayer.clearLayers();
+        let {data, error} = await supa.from('points').select('*');
+        if (error) {
+            alert('Ошибка загрузки точек: ' + error.message);
+            return;
+        }
+        data.forEach(point => {
+            const layer = point.type === 'birth' ? birthLayer : liveLayer;
+            L.circleMarker([point.lat, point.lng], markerOpts(point.type))
+                .bindPopup(`<b>${point.name}</b>
+${point.type === 'birth' ? 'Место рождения' : 'Место жительства'}`)
+                .addTo(layer);
+        });
+    }
+
+    loadMarkers();
+
+    // Добавление новой точки по клику
+    map.on('click', async function(e) {
+        const lat = e.latlng.lat, lng = e.latlng.lng;
+        const name = prompt('Имя друга или подпись:');
+        if (!name) return;
+        const type = confirm('Это место рождения? (OK — да, ОТМЕНА — место жительства)') ? 'birth' : 'live';
+        let {error} = await supa.from('points').insert([{ name, type, lat, lng }]);
+        if (error) {
+            alert('Ошибка при сохранении: ' + error.message);
+        } else {
+            loadMarkers();
+        }
+    });
+
+    // Автоматическое обновление (раз в 10 секунд)
+    setInterval(loadMarkers, 10000);
+</script>
+</body>
+</html>
