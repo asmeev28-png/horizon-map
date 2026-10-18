@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Карта друзей — места жительства и рождения</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 80vh; width: 100vw; }
+        #controls { margin: 10px; }
+        button { margin-right: 10px; }
+    </style>
+</head>
+<body>
+<div id="controls">
+    <button id="add-live">Добавить место жительства</button>
+    <button id="add-birth">Добавить место рождения</button>
+    <span id="status" style="color: red; margin-left: 20px;"></span>
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+    const SUPABASE_URL = 'https://ldvixamfxnqrsltztxyb.supabase.co/rest/v1';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxkdml4YW1meG5xcnNsdHp0eHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMzI4ODksImV4cCI6MjEwNzkwODg4OX0.0cc8e9luCKUq11ePut7Gc-NuUf7_FfG1N61-564Y28s';
+    const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const map = L.map('map').setView([59.9311, 30.3609], 10);
+    L.tileLayer('https://{s}.basemaps.  	  cartocdn.com/light_all/{z}/{x}/{y}{r png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+
+    const liveLayer = L.layerGroup().addTo(map);
+    const birthLayer = L.layerGroup().addTo(map);
+
+    const layers = {
+        "Место жительства": liveLayer,
+        "Место рождения": birthLayer
+    };
+    L.control.layers(null, layers, {collapsed: false}).addTo(map);
+
+    let addType = null;
+    document.getElementById('add-live').onclick = () => { addType = 'live'; setStatus('Нажми на карту, чтобы добавить место жительства'); };
+    document.getElementById('add-birth').onclick = () => { addType = 'birth'; setStatus('Нажми на карту, чтобы добавить место рождения'); };
+    function setStatus(txt, ok) {
+        let s = document.getElementById('status');
+        s.textContent = txt || '';
+        s.style.color = ok ? 'green' : 'red';
+        if (ok) setTimeout(() => { s.textContent = ''; }, 1500);
+    }
+
+    function markerOpts(type) {
+        return {
+            color: type === 'birth' ? '#b30000' : '#0077b6',
+            fillColor: type === 'birth' ? '#f7797d' : '#90e0ef',
+            fillOpacity: 0.85,
+            radius: 10
+        };
+    }
+
+    async function loadMarkers() {
+        liveLayer.clearLayers();
+        birthLayer.clearLayers();
+        let {data, error} = await supa.from('points').select('*');
+        if (error) {
+            setStatus('Ошибка загрузки точек: ' + error.message);
+            return;
+        }
+        data.forEach(point => {
+            const layer = point.type === 'birth' ? birthLayer : liveLayer;
+            const marker = L.circleMarker([point.lat, point.lng], markerOpts(point.type))
+                .bindPopup(`<b>${point.name}</b>
+${point.type === 'birth' ? 'Место рождения' : 'Место жительства'}
+<button onclick="window.deletePoint(${point.id})">Удалить точку</button>`);
+            marker.on('popupopen', e => {
+                window.deletePoint = async (id) => {
+                    let { error } = await supa.from('points').delete().eq('id', id);
+                    if (error) setStatus('Ошибка удаления: ' + error.message);
+                    else { setStatus('Удалено', true); loadMarkers(); }
+                    map.closePopup();
+                };
+            });
+            marker.addTo(layer);
+        });
+    }
+    loadMarkers();
+    setInterval(loadMarkers, 10000);
+
+    map.on('click', async function(e) {
+        if (!addType) return;
+        const lat = e.latlng.lat, lng = e.latlng.lng;
+        const name = prompt('Имя друга или подпись:');
+        if (!name) { setStatus('Отмена'); addType = null; return; }
+        let {error} = await supa.from('points').insert([{ name, type: addType, lat, lng }]);
+        if (error) setStatus('Ошибка при сохранении: ' + error.message);
+        else { setStatus('Сохранено', true); loadMarkers(); }
+        addType = null;
+    });
+</script>
+</body>
+</html>
