@@ -19,6 +19,21 @@
             padding: 0 2px !important;
             margin: 0 2px 2px 0 !important;
         }
+        .live-marker-circle {
+            width: 16px;
+            height: 16px;
+            background: #90e0ef;
+            border: 2px solid #0077b6;
+            border-radius: 50%;
+            color: #0077b6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 0 2px rgba(0,0,0,0.09);
+            user-select: none;
+       }
     </style>
 </head>
 <body>
@@ -79,9 +94,37 @@
         }
         data.forEach(point => {
             const layer = point.type === 'birth' ? birthLayer : liveLayer;
-            const marker = L.circleMarker([point.lat, point.lng], markerOpts(point.type))
+            let marker;
+            if (point.type === 'live') {
+                // Маркер с буквой
+                const firstLetter = point.name ? point.name.charAt(0).toUpperCase() : '';
+                marker = L.marker([point.lat, point.lng], {
+                    icon: L.divIcon({
+                        className: "live-marker",
+                        html: `<div class="live-marker-circle">${firstLetter}</div>`,
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9],
+                        popupAnchor: [0, -9]
+                    })
+                });
+            } else {
+                // Красный круглый маркер, как раньше
+                marker = L.circleMarker([point.lat, point.lng], markerOpts(point.type));
+            }
+            marker
                 .bindPopup(`<b>${point.name}</b>
-${point.type === 'birth' ? 'Место рождения' : 'Место жительства'}
+            ${point.type === 'birth' ? 'Место рождения' : 'Место жительства'}
+            <button onclick="window.deletePoint(${point.id})">Удалить точку</button>`);
+            marker.on('popupopen', e => {
+                window.deletePoint = async (id) => {
+                    let { error } = await supa.from('points').delete().eq('id', id);
+                    if (error) setStatus('Ошибка удаления: ' + error.message);
+                    else { setStatus('Удалено', true); loadMarkers(); }
+                    map.closePopup();
+                };
+            });
+            marker.addTo(layer);
+
 <button onclick="window.deletePoint(${point.id})">Удалить точку</button>`);
             marker.on('popupopen', e => {
                 window.deletePoint = async (id) => {
