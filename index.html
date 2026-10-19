@@ -93,11 +93,10 @@
             return;
         }
         data.forEach(point => {
-            const layer = point.type === 'birth' ? birthLayer : liveLayer;
             let marker;
             if (point.type === 'live') {
-                // Маркер с буквой
-                const firstLetter = point.name ? point.name.charAt(0).toUpperCase() : '';
+                // Голубой маркер с буквой
+                const firstLetter = point.name && point.name.length > 0 ? point.name.charAt(0).toUpperCase() : '';
                 marker = L.marker([point.lat, point.lng], {
                     icon: L.divIcon({
                         className: "live-marker",
@@ -108,22 +107,13 @@
                     })
                 });
             } else {
-                // Красный круглый маркер, как раньше
+                // Обычный красный круглый маркер для места рождения
                 marker = L.circleMarker([point.lat, point.lng], markerOpts(point.type));
             }
+
             marker
                 .bindPopup(`<b>${point.name}</b>
-            ${point.type === 'birth' ? 'Место рождения' : 'Место жительства'}
-            <button onclick="window.deletePoint(${point.id})">Удалить точку</button>`);
-            marker.on('popupopen', e => {
-                window.deletePoint = async (id) => {
-                    let { error } = await supa.from('points').delete().eq('id', id);
-                    if (error) setStatus('Ошибка удаления: ' + error.message);
-                    else { setStatus('Удалено', true); loadMarkers(); }
-                    map.closePopup();
-                };
-            });
-
+${point.type === 'birth' ? 'Место рождения' : 'Место жительства'}
 <button onclick="window.deletePoint(${point.id})">Удалить точку</button>`);
             marker.on('popupopen', e => {
                 window.deletePoint = async (id) => {
@@ -133,9 +123,13 @@
                     map.closePopup();
                 };
             });
+
+            // Добавить маркер на нужный слой
+            const layer = point.type === 'birth' ? birthLayer : liveLayer;
             marker.addTo(layer);
         });
-    }
+        }
+    
     loadMarkers();
     setInterval(loadMarkers, 10000);
 
